@@ -1,0 +1,37 @@
+{
+	"_comment" : "====================== haproxy information ======================",
+	"haproxy1": {
+		"name" : "haproxy1",
+		"ip" : "10.10.10.11",
+		"ssh_id" : "user",
+		"ssh_pw" : "user_passwd",
+		"root_pw" : "root_passwd"
+	},
+	"haproxy2": {
+		"name" : "haproxy2",
+		"ip" : "10.10.10.12",
+		"ssh_id" : "user",
+		"ssh_pw" : "user_passwd",
+		"root_pw" : "root_passwd"
+	},
+
+	"_comment" : "====================== haproxy, keepalived pkg info (file name : src_pkg.tar.gz) ======================",
+	"src_pkg": {
+		"haproxy": "haproxy-1.6.5",
+		"keepalived" : "keepalived-1.2.22"
+	},
+
+	"_comment" : "====================== scp source path ======================",
+	"scp": {
+		"config_path": "scp_user@10.10.10.100:/home/scp_user/proxyTool/config",
+		"common_path" : "scp_user@10.10.10.100:/home/scp_user/proxyTool/common",
+		"pw": "scp_user_passwd"
+	},
+
+	"_comment" : "====================== keepalive information ======================",
+	"keepalive": {
+		"virtual_ip" : "10.10.10.10",
+		"keepalive_interface" : "eth1",
+		"vrrp_interface" : "eth2"
+	}
+}

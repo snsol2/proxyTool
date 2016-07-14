@@ -1,0 +1,10 @@
+127.0.0.1 localhost haproxy1
+127.0.1.1 haproxy1
+
+10.10.10.10 haproxy
+10.10.10.11 haproxy1
+10.10.10.12 haproxy2
+
+10.10.10.111 onos1
+10.10.10.112 onos2
+10.10.10.113 onos3

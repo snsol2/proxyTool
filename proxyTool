@@ -1,0 +1,362 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import colorlog
+import haproxy_install
+import sys
+import time
+import datetime
+import getopt
+import signal
+
+#LOG_FLAG = True
+LOG_FLAG = False
+
+##############################################################################
+#
+##############################################################################
+CONF_FILE_NAME = "./config/haproxy.json"
+log = colorlog.ColorLog(LOG_FLAG)
+
+##############################################################################
+#
+##############################################################################
+def ssh_package_install(proxy, proxy_name, log_flag):
+    proxy.load_config_file(CONF_FILE_NAME, proxy_name)
+    # proxy.print_config_info()
+
+    print ""
+    log.printb("##############################################################")
+    log.printb("# Install haproxy & keepalived")
+    log.printb("##############################################################")
+    log.printb("#  ++ HA Proxy Host Name = %s" % proxy.name)
+    log.printb("#  ++ HA Porxy Host IP   = %s" % proxy.ip)
+    log.printb("##############################################################")
+    print ""
+
+    print ("")
+    log.printt(98, "# STEP 1. HA Proxy environment configuration" + " " * 18)
+    child = proxy.ssh_connect(proxy.LOG_ON)
+    proxy.ssh_haproxy_config(child, log_flag)
+
+    print ("")
+    log.printt(98, "# STEP 2. Install keepalived deamon" + " " * 27)
+    proxy.ssh_install_keepalived_daemon(child, log_flag)
+
+    print ("")
+    log.printt(98, "# STEP 3. Install haproxy" + " " * 37)
+    proxy.ssh_install_haproxy(child, log_flag)
+
+    child.close()
+
+##############################################################################
+#
+##############################################################################
+def get_haproxy_status(proxy, proxy_name):
+    proxy.load_config_file(CONF_FILE_NAME, proxy_name)
+    # proxy.print_config_info()
+
+    child = proxy.ssh_connect(proxy.LOG_OFF)
+    proxy.ssh_get_haproxy_status(child)
+
+    child.close()
+
+##############################################################################
+#
+##############################################################################
+def get_system_monitor(proxy, proxy_name, log_flag):
+    proxy.load_config_file(CONF_FILE_NAME, proxy_name)
+    # proxy.print_config_info()
+
+    print "\n\n"
+    child = proxy.ssh_connect(proxy.LOG_ON)
+    proxy.ssh_get_system_monitor(child, log_flag)
+
+    child.close()
+
+##############################################################################
+#
+##############################################################################
+def install_chk_onos_script(proxy, proxy_name, log_flag):
+    proxy.load_config_file(CONF_FILE_NAME, proxy_name)
+    # proxy.print_config_info()
+
+    print ""
+    log.printb("##############################################################")
+    log.printb("# Install Check ONOS script")
+    log.printb("##############################################################")
+    log.printb("#  ++ HA Proxy Host Name = %s" % proxy.name)
+    log.printb("#  ++ HA Porxy Host IP   = %s" % proxy.ip)
+    log.printb("##############################################################")
+    print ""
+
+    child = proxy.ssh_connect(proxy.LOG_ON)
+    proxy.ssh_install_chk_onos_script(child, log_flag)
+
+    child.close()
+
+##############################################################################
+#
+##############################################################################
+def get_haproxy_stat(proxy, proxy_name, log_flag):
+    proxy.load_config_file(CONF_FILE_NAME, proxy_name)
+    # proxy.print_config_info()
+
+    child = proxy.ssh_connect(proxy.LOG_ON)
+    proxy.ssh_get_haproxy_stat(child, log_flag)
+
+    child.close()
+
+##############################################################################
+#
+##############################################################################
+def signal_handler(signal, frame):
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
+
+##############################################################################
+#
+##############################################################################
+def print_haproxy_usage(argv):
+    print ("-"*60)
+    log.printt(46, "  USAGE" + " " * 53)
+
+    print ("-" * 60)
+
+    log.printr("%s [hi:o:S:sc:pv]\n" % sys.argv[0])
+    print ("-h       : show this message")
+    print ("-i       : set the system to install haproxy, keepalived")
+    print ("           ex) haproxy1, haproxy2, all")
+    print ("-S       : set the system to get onos proxy stats")
+    print ("           ex) haproxy1, haproxy2, all")
+    print ("-s       : print haproxy ha status (MASTER/BACKUP)")
+    print ("-c       : check haproxy and keepalived status")
+    print ("           ex) haproxy1, haproxy2, all")
+    print ("-p       : print config information (haproxy.json)")
+    print ("-v       : set verbose log mode (set with '-i' option)")
+
+    print ("")
+    log.printr("example) %s -i all" % argv)
+    log.printr("example) %s -i haproxy1 -c haproxy1 -v" % argv)
+    log.printr("example) %s -i haproxy1 -c haproxy1 -v" % argv)
+    log.printr("example) %s -i all -c all -v" % argv)
+    log.printr("example) %s -S all -v" % argv)
+    log.printr("example) %s -c haproxy2 " % argv)
+    log.printr("example) %s -s" % argv)
+    log.printr("example) %s -p" % argv)
+
+    print ("-" * 60)
+    sys.exit(0)
+
+
+##############################################################################
+# main
+##############################################################################
+if __name__ == "__main__":
+    chk_systems = ["haproxy1", "haproxy2", "all"]
+
+    install_system = None
+    onos_script_system = None
+    proxy_stat_system = None
+    haproxy_status_flag = None
+    monitor_system = None
+    verbose_flag = None
+    config_flag = None
+    system_flag = False
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:S:sc:pv", ["help"])
+        if len(opts) == 0 : opts = {'-h'} 
+    except getopt.GetoptError as err:
+        print str(err)
+        print_haproxy_usage(sys.argv[0])
+        sys.exit(1)
+
+    for opt, arg in opts:
+        if (opt == "-i"):
+            for chk_system in chk_systems:
+                if chk_system == arg:
+                    system_flag = True
+                    break
+            if system_flag is False:
+                log.printr ("[ERR]The system is possible only haproxy1, haproxy2, all")
+                print_haproxy_usage(sys.argv[0])
+                sys.exit()
+            install_system = arg
+
+        elif (opt == "-S"):
+            for chk_system in chk_systems:
+                if chk_system == arg:
+                    system_flag = True
+                    break
+            if system_flag is False:
+                log.printr ("[ERR]The system is possible only haproxy1, haproxy2, all")
+                print_haproxy_usage(sys.argv[0])
+                sys.exit()
+            proxy_stat_system = arg
+
+        elif (opt == "-s"):
+            haproxy_status_flag = True
+
+        elif (opt == "-c"):
+            for chk_system in chk_systems:
+                if chk_system == arg:
+                    system_flag = True
+                    break
+            if system_flag is False:
+                log.printr("[ERR]The monitor_systems system is possible only haproxy1, haproxy2, all")
+                print_haproxy_usage(sys.argv[0])
+                sys.exit()
+            monitor_system = arg
+
+        elif (opt == "-v"): verbose_flag = True
+
+        elif (opt == "-p"):
+            config_flag = True
+
+        elif (opt == "-h") or ( opt == "--help"): print_haproxy_usage(sys.argv[0])
+        else:   print_haproxy_usage(sys.argv[0])
+
+
+    start_date = datetime.datetime.now()
+    start_time = time.time()
+
+    try :
+        proxy1 = haproxy_install.HAProxy()
+        proxy2 = haproxy_install.HAProxy()
+
+        # install_chk_onos_script(proxy1, "haproxy1", verbose_flag)
+        # sys.exit(0)
+
+        # -i option
+        if install_system == "haproxy1":
+            ssh_package_install(proxy1, "haproxy1", verbose_flag)
+        elif install_system == "haproxy2":
+            ssh_package_install(proxy2, "haproxy2", verbose_flag)
+        elif install_system == "all":
+            ssh_package_install(proxy1, "haproxy1", verbose_flag)
+            ssh_package_install(proxy2, "haproxy2", verbose_flag)
+
+        # -o option
+        if onos_script_system == "haproxy1":
+            install_chk_onos_script(proxy1, "haproxy1", verbose_flag)
+        elif onos_script_system == "haproxy2":
+            install_chk_onos_script(proxy2, "haproxy2", verbose_flag)
+        elif onos_script_system == "all":
+            install_chk_onos_script(proxy1, "haproxy1", verbose_flag)
+            install_chk_onos_script(proxy2, "haproxy2", verbose_flag)
+
+        # -S option
+        if proxy_stat_system == "haproxy1":
+            get_haproxy_status(proxy1, "haproxy1")
+            # os.system("clear")
+            log.printt(98, "# HA Proxy status (%s)" % datetime.datetime.now())
+            log.printb("+----------------------------------------------------------------+")
+            log.printb("+       system name |             IP_ADDRESS |       VRRP_STATUS +")
+            log.printb("+----------------------------------------------------------------+")
+            log.printb("+%18s |%23s |%18s |" % (proxy1.name, proxy1.ip, proxy1.status))
+            log.printb("+----------------------------------------------------------------+")
+            print ""
+            log.printt(98, "# System(%s) HA Proxy status" % proxy1.name)
+            get_haproxy_stat(proxy1, "haproxy1", verbose_flag)
+
+        elif proxy_stat_system == "haproxy2":
+            get_haproxy_status(proxy2, "haproxy2")
+            # os.system("clear")
+            log.printt(98, "# HA Proxy status (%s)" % datetime.datetime.now())
+            log.printb("+----------------------------------------------------------------+")
+            log.printb("+       system name |             IP_ADDRESS |       VRRP_STATUS +")
+            log.printb("+----------------------------------------------------------------+")
+            log.printb("+%18s |%23s |%18s |" % (proxy2.name, proxy2.ip, proxy2.status))
+            log.printb("+----------------------------------------------------------------+")
+            print ""
+            log.printt(98, "# System(%s) HA Proxy status" % proxy2.name)
+            get_haproxy_stat(proxy2, "haproxy2", verbose_flag)
+
+        elif proxy_stat_system == "all":
+            get_haproxy_status(proxy1, "haproxy1")
+            get_haproxy_status(proxy2, "haproxy2")
+            # os.system("clear")
+            log.printt(98, "# HA Proxy status (%s)" % datetime.datetime.now())
+            log.printb("+----------------------------------------------------------------+")
+            log.printb("+       system name |             IP_ADDRESS |       VRRP_STATUS +")
+            log.printb("+----------------------------------------------------------------+")
+            log.printb("+%18s |%23s |%18s |" % (proxy1.name, proxy1.ip, proxy1.status))
+            log.printb("+%18s |%23s |%18s |" % (proxy2.name, proxy2.ip, proxy2.status))
+            log.printb("+----------------------------------------------------------------+")
+
+            print ""
+            log.printt(98, "# System(%s) HA Proxy status" % proxy1.name)
+            get_haproxy_stat(proxy1, "haproxy1", verbose_flag)
+            print ""
+            log.printt(98, "# System(%s) HA Proxy status" % proxy2.name)
+            get_haproxy_stat(proxy2, "haproxy2", verbose_flag)
+
+        # -c option
+        if monitor_system == "haproxy1":
+            get_system_monitor(proxy1, "haproxy1", True)
+        elif monitor_system == "haproxy2":
+            get_system_monitor(proxy2, "haproxy2", True)
+        elif monitor_system == "all":
+            get_system_monitor(proxy1, "haproxy1", True)
+            get_system_monitor(proxy2, "haproxy2", True)
+
+            log.printt(98, "# monitoring summary information" + " " * 37)
+            log.printb("+------------------------------------------------------------------+")
+            log.printb("+     information    |       haproxy1       |       haproxy2       +")
+            log.printb("+------------------------------------------------------------------+")
+            log.printb("+ haproxy version    | %20s | %20s |" % (proxy1.m_haproxy_ver, proxy2.m_haproxy_ver))
+            log.printb("+ haproxy process    | %20s | %20s |" % (proxy1.m_haproxy_proc, proxy2.m_haproxy_proc))
+            log.printb("+ haproxy pid        | %20s | %20s |" % (proxy1.m_haproxy_pid, proxy2.m_haproxy_pid))
+            log.printb("+ haproxy status     | %20s | %20s |" % (proxy1.m_haproxy_status, proxy2.m_haproxy_status))
+            log.printb("+ haproxy ha status  | %20s | %20s |" % (proxy1.m_haproxy_ha_status, proxy2.m_haproxy_ha_status))
+            log.printb("+ keepalived version | %20s | %20s |" % (proxy1.m_keepalived_ver, proxy2.m_keepalived_ver))
+            log.printb("+ keepalived procoss | %20s | %20s |" % (proxy1.m_keepalived_proc, proxy2.m_keepalived_proc))
+            log.printb("+ keepalived pid     | %20s | %20s |" % (proxy1.m_keepalived_pid, proxy2.m_keepalived_pid))
+            log.printb("+ virtual ip addr    | %20s | %20s |" % (proxy1.m_virtual_ip, proxy2.m_virtual_ip))
+            log.printb("+ vrrp tcp dump      | %20s | %20s |" % (proxy1.m_vrrp_tcp_dump, proxy2.m_vrrp_tcp_dump))
+            log.printb("+------------------------------------------------------------------+")
+
+        # -p option
+        if config_flag is True :
+            proxy1.load_config_file(CONF_FILE_NAME, "haproxy1")
+            proxy2.load_config_file(CONF_FILE_NAME, "haproxy2")
+
+            log.printt(98, "  HA Proxy1 Information" + " " * 50)
+            proxy1.print_config_info()
+
+            print("")
+            log.printt(98, "  HA Proxy2 Information" + " " * 50)
+            proxy2.print_config_info()
+
+        # -s option
+        if haproxy_status_flag is True:
+            while True:
+                get_haproxy_status(proxy1, "haproxy1")
+                get_haproxy_status(proxy2, "haproxy2")
+                # os.system("clear")
+                log.printt(98, "# HA Proxy status (%s)" % datetime.datetime.now())
+                log.printg("+------------------------------------------------------------------------------+")
+                log.printg("+   haproxy   |  haproxy ver |  keepalive ver |        IP       |    STATUS    +")
+                log.printg("+------------------------------------------------------------------------------+")
+                log.printg("+   %9s |   %10s |     %10s | %15s |    %6s    |"
+                           % (proxy1.name, proxy1.m_haproxy_ver, proxy1.m_keepalived_ver,
+                              proxy1.ip, proxy1.status))
+                log.printg("+   %9s |   %10s |     %10s | %15s |    %6s    |"
+                           % (proxy2.name, proxy2.m_haproxy_ver, proxy2.m_keepalived_ver,
+                              proxy2.ip, proxy2.status))
+                log.printg("+------------------------------------------------------------------------------+")
+                time.sleep(1)
+
+    except Exception as err:
+        log.printr("%s" % str(err))
+        log.printe()
+
+    if install_system is not None:
+        print ""
+        log.printt(98, "# Running time information" + " " * 36)
+        log.printb("Start Time   : %s" % start_date)
+        log.printb("End Time     : %s" % datetime.datetime.now())
+        log.printb("Running Time : %d sec" % int(time.time() - start_time))

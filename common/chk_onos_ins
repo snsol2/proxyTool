@@ -1,0 +1,371 @@
+#!/usr/bin/python
+# coding=utf-8
+
+# =============================================
+# import info
+# =============================================
+import json
+import requests
+import csv
+
+from pprint import pprint
+from requests.auth import HTTPBasicAuth
+
+# =============================================
+# user defined variable info
+# =============================================
+onos_conf_file='/etc/haproxy/onos_proxy.json'
+
+host_file='/etc/hosts'
+haproxy_file='/etc/haproxy/haproxy.cfg'
+haproxy_name='haproxy'
+haproxy_port='8181'
+sub_url='onos/v1/cluster'
+haproxy_ip='N/A'
+stats_url='http://127.0.0.1:8282/haproxy_stats;csv'
+stats_user=''
+stats_passwd=''
+
+
+
+# =============================================
+# =============================================
+# =============================================
+# script defined variable info
+# =============================================
+# =============================================
+
+# 0 ~ 102
+str_type = ["00;30","01;30","02;30","04;30","07;30","09;30","00;31","01;31","02;31","04;31","07;31","09;31", \
+            "00;32","01;32","02;32","04;32","07;32","09;32","00;33","01;33","02;33","04;33","07;33","09;33", \
+            "00;34","01;34","02;34","04;34","07;34","09;34","00;35","01;35","02;35","04;35","07;35","09;35", \
+            "00;36","01;36","02;36","04;36","07;36","09;36","00;37","01;37","02;37","04;37","07;37","09;37", \
+            "00;40","01;40","02;40","04;40","07;40","09;40","00;90",\
+            "00;41","01;41","02;41","04;41","07;41","09;41","00;91",\
+            "00;42","01;42","02;42","04;42","07;42","09;42","00;92",\
+            "00;43","01;43","02;43","04;43","07;43","09;43","00;93",\
+            "00;44","01;44","02;44","04;44","07;44","09;44","00;94",\
+            "00;45","01;45","02;45","04;45","07;45","09;45","00;95",\
+            "00;46","01;46","02;46","04;46","07;46","09;46","00;96",\
+            "00;47","01;47","02;47","04;47","07;47","09;47"]
+
+haproxy_section_list=["global", "defaults", "listen", "frontend", "backend", "userlist"]
+
+# =============================================
+# function info 
+# =============================================
+def printr(prt): print("\x1b[91m{}\x1b[00m" .format(prt))
+def printg(prt): print("\x1b[92m{}\x1b[00m" .format(prt))
+def printb(prt): print("\x1b[94m{}\x1b[00m" .format(prt))
+def printy(prt): print("\x1b[93m{}\x1b[00m" .format(prt))
+def printu(type, prt): print("\x1b["+str(type)+"m{}\x1b[00m".format(prt))
+def printt(type, prt): print("\x1b["+str_type[type]+"m{}\x1b[00m".format(prt))
+
+def str_all_sample(ptr) :
+    for type_info in str_type :
+        printu(type_info, str(str_type.index(type_info))+": "+ptr);
+
+def load_config(config_file):
+    global host_file, haproxy_file, haproxy_name, haproxy_port, sub_url,haproxy_ip, stats_url, stats_user, stats_passwd
+    try:
+        with open(config_file) as data_file:    
+            onos_conf_data = json.load(data_file)
+    except: 
+       return 0
+    if 'host_file' in onos_conf_data:
+        host_file = onos_conf_data["host_file"]
+    if 'proxy_conf_file' in onos_conf_data:
+        haproxy_file = onos_conf_data["proxy_conf_file"]
+
+    if 'onos_proxy' in onos_conf_data:
+        if 'host_name' in onos_conf_data["onos_proxy"]:
+            haproxy_name = onos_conf_data["onos_proxy"]["host_name"]
+        if 'port' in onos_conf_data["onos_proxy"]:
+            haproxy_port = str(onos_conf_data["onos_proxy"]["port"])
+        if 'req_url' in onos_conf_data["onos_proxy"]:
+            sub_url = onos_conf_data["onos_proxy"]["req_url"]
+
+    if 'proxy_stats' in onos_conf_data:
+        if 'stats_url' in onos_conf_data["proxy_stats"]:
+            stats_url = onos_conf_data["proxy_stats"]["stats_url"]
+        if 'stats_user' in onos_conf_data["proxy_stats"]:
+            stats_user = str(onos_conf_data["proxy_stats"]["stats_user"])
+        if 'stats_passwd' in onos_conf_data["proxy_stats"]:
+            stats_passwd = onos_conf_data["proxy_stats"]["stats_passwd"]
+
+    if ip_checkv4(haproxy_name) == 0 :
+        haproxy_ip=search_ip_host_file(host_file, haproxy_name)
+        if haproxy_ip == "" : return 0
+    else :
+        haproxy_ip = haproxy_name
+
+    return 1
+
+
+def search_ip_host_file(file_name, host_name) :
+    try:
+        f = open(file_name, 'r')
+    except:
+        return ""
+
+    while True:
+        line = f.readline()
+        if not line: break
+        line_split = line.split()
+        if len(line_split)>0 :
+            if host_name == line_split[1] : 
+                f.close()
+                return line_split[0]
+    f.close()
+    return "N/A"
+
+def search_name_host_file(file_name, host_ip) :
+    try:
+        f = open(file_name, 'r')
+    except:
+        return ""
+
+    while True:
+        line = f.readline()
+        if not line: break
+        line_split = line.split()
+        if len(line_split)>0 :
+            if host_ip == line_split[0] : 
+                f.close()
+                return line_split[1]
+    f.close()
+    return "N/A"
+
+def search_haproxy_backend_list(file_name, back_dic_lists) :
+    backend_flag=0
+    backendcount=0
+    servercount=0
+    serverlist = []
+    backendstr = ''
+    try:
+        f = open(file_name, 'r')
+    except:
+        return 0 
+
+    while True:
+        line = f.readline()
+        if not line: break
+        line_split = line.split()
+        if len(line_split) > 1 :
+            if line_split[0] in haproxy_section_list:
+                if backend_flag == 1:
+                    if servercount > 0 :
+                       back_dic_lists[backendstr]=serverlist
+                       backendcount += 1
+                       servercount = 0
+                       serverlist = [] 
+                    backend_flag = 0
+                if "backend" == line_split[0] : 
+                    backendstr = line_split[1]
+                    backend_flag = 1
+                else :
+                    continue
+            else :
+                if backend_flag == 1 :
+                    if "server" == line_split[0] and len(line_split) > 2 :
+                        serverlist.append(line_split[1])
+                        servercount += 1
+
+    if backend_flag == 1:
+        if servercount > 0 :
+            back_dic_lists[backendstr]=serverlist
+            backendcount += 1
+
+    f.close()
+    return backendcount 
+
+def get_haproxy_report(url, user=None, password=None) :
+    auth = None
+    if user:
+        auth = HTTPBasicAuth(user, password)
+    try:
+        r = requests.get(url, auth=auth)
+        r.raise_for_status()
+        data = r.content.lstrip('# ')
+    except:
+       return (-1)
+
+    return csv.DictReader(data.splitlines())
+
+def get_stat_info(stat_rows, backend_dic, stat_dic) :
+    for row in stat_rows:
+        if row['pxname'] in backend_dic: 
+           if row['svname'] in backend_dic[row['pxname']] : 
+               stat_dic[row['pxname']+"_"+row['svname']] = list()
+               stat_dic[row['pxname']+"_"+row['svname']].append(row['stot'])
+               stat_dic[row['pxname']+"_"+row['svname']].append(row['hrsp_2xx'])
+               stat_dic[row['pxname']+"_"+row['svname']].append(row['status'])
+
+def get_stat_count(stat_rows, backend, hostname, svc_count) :
+    for row in stat_rows:
+        if row['pxname'] == backend :
+            if row['svname'] == hostname :
+		svc_count.append(row['stot'])
+                svc_count.append(row['hrsp_2xx'] )
+                return 2
+    return (-1);
+
+
+def ip_checkv4(ip):
+    parts = ip.split(".")
+    if len(parts) != 4:
+        return 0
+    for item in parts:
+        item = int(item)
+    if 0 <= item or item >= 255:
+        return 0
+    return 1
+
+# =============================================
+# Script Start 
+# =============================================
+
+#str_all_sample("SAMPLE PRINT")
+
+printt(34,"##################################################################")
+printt(34,"# 1. ONOS NBI Proxy Configuration Information.                   #")
+printt(34,"##################################################################")
+
+if load_config(onos_conf_file) == 0 :
+   print ""
+   printt(10, "                                                                  "); 
+   printt(10, " ** Please Check Configuration File.                              "); 
+   printt(10, " ** ++ file name: %-48s" % onos_conf_file                         ); 
+   printt(10, " ** Exit the Script.                                              "); 
+   printt(10, "                                                                  "); 
+   exit()
+
+url = 'http://'+haproxy_name+':'+haproxy_port+'/'+sub_url
+header = {'Accept': 'application/json'}
+
+printt(37, " ++ ONOS Proxy Host Name = "+haproxy_name)
+printt(37, " ++ ONOS Proxy Host IP   = "+haproxy_ip)
+printt(37, " ++ ONOS Proxy Port      = "+haproxy_port)
+print("")
+if haproxy_ip == "N/A" :
+  printt(10, "                                                                  "); 
+  printt(10, " ** Invalid ONOS Proxy Host Name.                                 "); 
+  printt(10, " ** Please Check HA_Proxy Server Name.                            "); 
+  printt(10, " ** Exit the Script.                                              "); 
+  printt(10, "                                                                  "); 
+  exit()
+
+printt(34,"##################################################################")
+printt(34,"# 2. ONOS clustering node HOSTNAME Information.                  #")
+printt(34,"##################################################################")
+s = requests.session()
+s.auth = ('karaf', 'karaf')
+
+node_ip_list = list()
+node_name_list = list()
+node_dic = {}
+backend_dic = {}	
+report_data = {}
+
+try:
+  onos_rsp_data = s.get(url, headers=header)
+except :
+    print ""
+    printt(10, "                                                                  "); 
+    printt(10, " ** ONOS Instance Information Get Failed.                         "); 
+    printt(10, " ** Please Check HA_Proxy Server.                                 "); 
+    printt(10, " ** Exit the Script.                                              "); 
+    printt(10, "                                                                  "); 
+    exit()
+
+if onos_rsp_data.status_code != 200  :
+    print ""
+    printt(10, "                                                                  "); 
+    printt(10, " ** ONOS Instance Information Get Failed.                         "); 
+    printt(10, " ** ++ url: %-54s" % url                               ); 
+    printt(10, " ** Please Check HA_Proxy Server.                                 "); 
+    printt(10, " ** Please Check ONOS Instance.                                   "); 
+    printt(10, " ** Exit the Script.                                              "); 
+    printt(10, "                                                                  "); 
+    exit()
+
+
+
+for node_info in onos_rsp_data.json()['nodes'] :
+    node_ip_list.append(node_info['ip']) 
+    svc_host_name = search_name_host_file(host_file, node_info['ip'])
+    if svc_host_name == "" :
+        print ""
+        printt(10, "                                                                  "); 
+        printt(10, " ** ONOS Instance Information Get Failed.                         "); 
+        printt(10, " ** Please Check host_file.                                       "); 
+        printt(10, " ** ++ file name: %-48s" % host_file                               ); 
+        printt(10, " ** Exit the Script.                                              "); 
+        printt(10, "                                                                  "); 
+        exit()
+    else :
+        node_dic[node_info['ip']] = svc_host_name 
+
+node_ip_list.sort()
+node_ip_cnt = len(node_ip_list)
+
+printt(37,"+----------------------------------------------------------------+")
+printt(40,"|       ONOS Instance IP Address |                     Host Name |")
+printt(37,"+----------------------------------------------------------------+")
+for ninfo in node_dic :
+    printt(37,"|%31s |%30s |" %(ninfo, node_dic[ninfo])                       )
+printt(37,"+----------------------------------------------------------------+")
+
+
+if search_haproxy_backend_list(haproxy_file, backend_dic) < 0 :
+    print ""
+    printt(10, "                                                                  ");
+    printt(10, " ** ONOS Instance Information Get Failed.                         ");
+    printt(10, " ** Please Check HAProxy Configuration file.                      "); 
+    printt(10, " ** ++ file name: %-48s" % haproxy_file                            ); 
+    printt(10, " ** Exit the Script.                                              ");
+    printt(10, "                                                                  ");
+    exit()
+
+report_data = get_haproxy_report(stats_url, stats_user, stats_passwd ) 
+if report_data == (-1) :
+    print ""
+    printt(10, "                                                                  ");
+    printt(10, " ** HA Proxy Statistic Get Failed.                                ");
+    printt(10, " ** Please Check HAProxy Process.                                 "); 
+    printt(10, " ** And please Check Configuration File.                          "); 
+    printt(10, " ** ++ file name: %-48s" % onos_conf_file                         ); 
+    printt(10, " ** Exit the Script.                                              ");
+    printt(10, "                                                                  ");
+    exit()
+
+stat_dic = {}
+get_stat_info(report_data, backend_dic, stat_dic) 
+
+printt(34,"##################################################################")
+printt(34,"# 3. HAProxy Server Information.                                 #")
+printt(34,"##################################################################")
+
+
+for backend in backend_dic :
+    printt(37,"+----------------------------------------------------------------+")
+    printt(40,"| Backend Proxy Service Name | Service Host |  Sts |  Req | Succ |" ); 
+    printt(37,"+----------------------------------------------------------------+")
+    first_flag = 1;
+    for svrinfo in backend_dic[backend] :
+        req_count = 0
+        succ_count = 0
+        node_sts = 'DOWN'
+
+        if backend+"_"+svrinfo in stat_dic :
+           if len(stat_dic[backend+"_"+svrinfo]) > 2 :
+              req_count = stat_dic[backend+"_"+svrinfo][0]
+              succ_count = stat_dic[backend+"_"+svrinfo][1]
+              node_sts = stat_dic[backend+"_"+svrinfo][2]
+
+        if first_flag == 1 : 
+            printt(37,"|%27s |%13s |%5s |%5s |%5s |" % (backend, svrinfo, node_sts, str(req_count), str(succ_count)) ); 
+            first_flag = 0
+        else : 
+            printt(37,"|%27s |%13s |%5s |%5s |%5s |" % ('', svrinfo, node_sts, str(req_count), str(succ_count)) ); 
+    printt(37,"+----------------------------------------------------------------+")

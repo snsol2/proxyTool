@@ -1,0 +1,15 @@
+{
+	"onos_proxy": {
+		"host_name": "haproxy",
+		"port":8181,
+		"req_url":"onos/v1/cluster"
+	},
+	"host_file": "/etc/hosts",
+	"proxy_conf_file": "/etc/haproxy/haproxy.cfg",
+
+    "proxy_stats": {
+		"stats_url":"http://127.0.0.1:8282/haproxy_stats;csv", 
+        "stats_user":"haproxy",
+ 		"stats_passwd":"haproxy_passwd"
+	}
+}
