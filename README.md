@@ -47,7 +47,7 @@
 2. 실행 방법
    - haproxy1, haproxy2와 상호 연동이 가능한 시스템에서 실행한다.
      
-     proxyTool 사용법
+     proxyTool 사용법:  proxyTool [hi:o:S:sc:pv]
      
      -h       : show this message
      -i       : set the system to install haproxy, keepalived
