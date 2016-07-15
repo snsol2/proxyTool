@@ -98,12 +98,25 @@ def install_chk_onos_script(proxy, proxy_name, log_flag):
 ##############################################################################
 #
 ##############################################################################
-def get_haproxy_stat(proxy, proxy_name, log_flag):
+def get_haproxy_service_stat(proxy, proxy_name, log_flag):
     proxy.load_config_file(CONF_FILE_NAME, proxy_name)
     # proxy.print_config_info()
 
     child = proxy.ssh_connect(proxy.LOG_ON)
-    proxy.ssh_get_haproxy_stat(child, log_flag)
+    proxy.ssh_get_haproxy_status(child)
+
+    # os.system("clear")
+    print ""
+    log.printt(98, "# HA Proxy status (%s)" % datetime.datetime.now())
+    log.printb("+----------------------------------------------------------------+")
+    log.printb("+       system name |             IP_ADDRESS |       VRRP_STATUS +")
+    log.printb("+----------------------------------------------------------------+")
+    log.printb("+%18s |%23s |%18s |" % (proxy.name, proxy.ip, proxy.status))
+    log.printb("+----------------------------------------------------------------+")
+    print ""
+    log.printt(98, "# System(%s) HA Proxy status" % proxy.name)
+
+    proxy.ssh_get_haproxy_service_stat(child, log_flag)
 
     child.close()
 
@@ -250,49 +263,14 @@ if __name__ == "__main__":
 
         # -S option
         if proxy_stat_system == "haproxy1":
-            get_haproxy_status(proxy1, "haproxy1")
-            # os.system("clear")
-            log.printt(98, "# HA Proxy status (%s)" % datetime.datetime.now())
-            log.printb("+----------------------------------------------------------------+")
-            log.printb("+       system name |             IP_ADDRESS |       VRRP_STATUS +")
-            log.printb("+----------------------------------------------------------------+")
-            log.printb("+%18s |%23s |%18s |" % (proxy1.name, proxy1.ip, proxy1.status))
-            log.printb("+----------------------------------------------------------------+")
-            print ""
-            log.printt(98, "# System(%s) HA Proxy status" % proxy1.name)
-            get_haproxy_stat(proxy1, "haproxy1", verbose_flag)
+            get_haproxy_service_stat(proxy1, "haproxy1", verbose_flag)
 
         elif proxy_stat_system == "haproxy2":
-            get_haproxy_status(proxy2, "haproxy2")
-            # os.system("clear")
-            log.printt(98, "# HA Proxy status (%s)" % datetime.datetime.now())
-            log.printb("+----------------------------------------------------------------+")
-            log.printb("+       system name |             IP_ADDRESS |       VRRP_STATUS +")
-            log.printb("+----------------------------------------------------------------+")
-            log.printb("+%18s |%23s |%18s |" % (proxy2.name, proxy2.ip, proxy2.status))
-            log.printb("+----------------------------------------------------------------+")
-            print ""
-            log.printt(98, "# System(%s) HA Proxy status" % proxy2.name)
-            get_haproxy_stat(proxy2, "haproxy2", verbose_flag)
+            get_haproxy_service_stat(proxy2, "haproxy2", verbose_flag)
 
         elif proxy_stat_system == "all":
-            get_haproxy_status(proxy1, "haproxy1")
-            get_haproxy_status(proxy2, "haproxy2")
-            # os.system("clear")
-            log.printt(98, "# HA Proxy status (%s)" % datetime.datetime.now())
-            log.printb("+----------------------------------------------------------------+")
-            log.printb("+       system name |             IP_ADDRESS |       VRRP_STATUS +")
-            log.printb("+----------------------------------------------------------------+")
-            log.printb("+%18s |%23s |%18s |" % (proxy1.name, proxy1.ip, proxy1.status))
-            log.printb("+%18s |%23s |%18s |" % (proxy2.name, proxy2.ip, proxy2.status))
-            log.printb("+----------------------------------------------------------------+")
-
-            print ""
-            log.printt(98, "# System(%s) HA Proxy status" % proxy1.name)
-            get_haproxy_stat(proxy1, "haproxy1", verbose_flag)
-            print ""
-            log.printt(98, "# System(%s) HA Proxy status" % proxy2.name)
-            get_haproxy_stat(proxy2, "haproxy2", verbose_flag)
+            get_haproxy_service_stat(proxy1, "haproxy1", verbose_flag)
+            get_haproxy_service_stat(proxy2, "haproxy2", verbose_flag)
 
         # -c option
         if monitor_system == "haproxy1":

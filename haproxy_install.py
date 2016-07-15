@@ -603,15 +603,14 @@ class HAProxy(object):
         log.printg("")
 
     ##############################################################################
-    # ssh_get_haproxy_stat
+    # ssh_get_haproxy_service_stat
     ##############################################################################
-    def ssh_get_haproxy_stat(self, child, log_flag):
-        #remote_command = "cd CheckONOSInst"
-        #self.ssh_command_public(child, remote_command, self.PROMPT_PUBLIC, self.LOG_ON, log_flag)
-
+    def ssh_get_haproxy_service_stat(self, child, log_flag):
         remote_command = "/etc/haproxy/chk_onos_ins"
         result = self.ssh_command_public(child, remote_command, self.PROMPT_PUBLIC, self.LOG_ON, log_flag)
-        print result
+        result = result.split('\r\n')
+        for line in result[1:(len(result)-1)]:
+            print line
 
 ##############################################################################
 # main
