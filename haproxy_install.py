@@ -602,7 +602,7 @@ class HAProxy(object):
         log.printb("keepalived version : %s" % self.m_keepalived_ver)
         log.printb("keepalived procoss : %s" % self.m_keepalived_proc)
         log.printb("keepalived pid     : %s" % self.m_keepalived_pid)
-        log.printb("virtual ip addr    : %s" % self.m_virtual_ip)
+        log.printb("virtual ip addr    : %s(%s)" % (self.m_virtual_ip, self.virtual_ip))
         log.printb("vrrp tcp dump      : %s" % self.m_vrrp_tcp_dump)
 
         log.printg("")
