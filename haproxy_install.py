@@ -568,7 +568,7 @@ class HAProxy(object):
         result = result.split('\r\n')
         result = result[1].split(" ")
 
-        if str(result).find("10.10.2.116") >= 0:
+        if str(result).find(self.virtual_ip) >= 0:
             self.m_virtual_ip = "OK"
         else:
             self.m_virtual_ip = "NOK"
