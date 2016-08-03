@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 # LOG_FLAG = True
 LOG_FLAG = False
+VRRP_STS_INFO = ["MASTER", "BACKUP"]
 
 ##############################################################################
 # ColorLog
@@ -431,6 +432,8 @@ class HAProxy(object):
         child.expect(self.PROMPT_ALL)
         result = child.before.split('\r\n')
         self.status = result[1]
+        if self.status not in VRRP_STS_INFO :
+           self.status = "UNKNOWN"
 
         remote_command = "keepalived -v"
         child.sendline(remote_command)
