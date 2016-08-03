@@ -476,11 +476,12 @@ class HAProxy(object):
         pid = ""
         pid_cnt = 0
         results = results.split("\r\n")
-        for result in results:
+        for result in results[1:len(results)-1]:
             if result.find("grep") == -1 and result.find("haproxy") >= 0:
                 result = result.split(" ")
                 result = list(OrderedDict.fromkeys(result))
-                result.remove("")
+                if "" in result:
+                   result.remove("")
 
                 pid += result[1]
                 pid += ", "
@@ -539,11 +540,12 @@ class HAProxy(object):
         pid = ""
         pid_cnt = 0
         results = results.split("\r\n")
-        for result in results:
+        for result in results[1:len(results)-1]:
             if result.find("grep") == -1 and result.find("keepalived") >= 0:
                 result = result.split(" ")
                 result = list(OrderedDict.fromkeys(result))
-                result.remove("")
+                if "" in result:
+                   result.remove("")
 
                 pid += result[1]
                 pid += ", "
@@ -580,7 +582,7 @@ class HAProxy(object):
 
         dump_cnt=0
         results = results.split("\r\n")
-        for result in results:
+        for result in results[1:len(results)-1]:
             if result.find("tcpdump") == -1 and result.find("listening") == -1 \
                     and result.find("VRRP") >= 0:
                 dump_cnt += 1
