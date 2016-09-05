@@ -413,7 +413,7 @@ class HAProxy(object):
         remote_command = "service haproxy status"
         self.ssh_command_prompt(child, remote_command, self.PROMPT_ROOT, self.LOG_ON, log_flag)
 
-        remote_command = "ip addr list eth0"
+        remote_command = "ip addr list " + self.keepalive_interface
         self.ssh_command_prompt(child, remote_command, self.PROMPT_ROOT, self.LOG_ON, log_flag)
 
         remote_command = "scp" + " " + self.scp_common_path + "/chk_onos_ins"+ " " + "/etc/haproxy/"
